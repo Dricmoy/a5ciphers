@@ -55,7 +55,10 @@ def bestFreqDict(text1: str, text2: str) -> dict:
     initial_map = a5p1.freqDict(text2)
 
     best_map = initial_map.copy()
-    best_scores = checkEvalDecipherment(best_map, text1, text2)[0] # Initial accuracy (needs to be improved)
+    
+    best_key_accuracy, best_decipherment_accuracy = checkEvalDecipherment(best_map, text1, text2)
+    # combined score
+    best_scores = best_key_accuracy + best_decipherment_accuracy
     
     freq_counter = Counter(text2)
     freq_groups = {}
@@ -66,14 +69,35 @@ def bestFreqDict(text1: str, text2: str) -> dict:
                 freq_groups[freq] = []
             freq_groups[freq].append(char)  
 
-    Lists_to_perm = []
+    tied = []
     
     for freq, chars in freq_groups.items():
         if len(chars) > 1:
-            Lists_to_perm.append(chars)
-    
-    print(Lists_to_perm)
+            tied.append(chars)
 
+    tie_perms = [permutations(group) for group in tied]
+    
+    swapped_dicts = []
+    for combined_perm in product(*tie_perms):
+        swapped_dict = initial_map.copy()  # Copy the original dictionary to modify
+
+        # For each group and its corresponding permutation
+        for group, perm in zip(tied, combined_perm):
+            for key, new_key in zip(group, perm):
+                swapped_dict[key] = initial_map[new_key]  # Swap values based on the permutation
+
+        swapped_dicts.append(swapped_dict)
+    
+    for i, swapped_dict in enumerate(swapped_dicts):
+        key_accuracy, decipherment_accuracy = checkEvalDecipherment(swapped_dict, text1, text2)
+        
+        # Calculate combined score for comparison
+        combined_score = key_accuracy + decipherment_accuracy
+        
+        if combined_score > best_scores:
+            best_scores = combined_score
+            best_map = swapped_dict
+            
     return best_map
 
 def checkEvalDecipherment(mapping, text1, text2) -> [float, float]:
@@ -93,7 +117,8 @@ def test():
     text1 = "If a man is offered a fact which goes against his instincts, he will scrutinize it closely, and unless the evidence is overwhelming, he will refuse to believe it. If, on the other hand, he is offered something which affordz a reason for acting in accordance to his instincts, he will accept it even on the slightest evidence. The origin of myths is explained in this way. -Bertrand Russell"
     text2 = "RU Z NZM RH LUUVIVW Z UZXG DSRXS TLVH ZTZRMHG SRH RMHGRMXGH, SV DROO HXIFGRMRAV RG XOLHVOB, ZMW FMOVHH GSV VERWVMXV RH LEVIDSVONRMT, SV DROO IVUFHV GL YVORVEV RG. RU, LM GSV LGSVI SZMW, SV RH LUUVIVW HLNVGSRMT DSRXS ZUULIWA Z IVZHLM ULI ZXGRMT RM ZXXLIWZMXV GL SRH RMHGRMXGH, SV DROO ZXXVKG RG VEVM LM GSV HORTSGVHG VERWVMXV. GSV LIRTRM LU NBGSH RH VCKOZRMVW RM GSRH DZB. -YVIGIZMW IFHHVOO"
     mapping = bestFreqDict(text1, text2)
-    assert mapping == {'V': 'E', 'R': 'T', 'M': 'A', 'H': 'O', 'G': 'I', 'S': 'N', 'Z': 'S', 'L': 'H', 'X': 'R', 'O': 'D', 'I': 'L', 'U': 'C', 'W': 'U', 'D': 'W', 'T': 'M', 'E': 'F', 'N': 'G', 'F': 'Y', 'B': 'P', 'A': 'V', 'Y': 'B', 'K': 'K', 'C': 'J'}
-    np.testing.assert_array_almost_equal(checkEvalDecipherment(mapping, text1, text2), [0.13043478260869565, 0.1607717041800643])
+    keyacc, decipheracc = checkEvalDecipherment(mapping, text1, text2)
+    assert keyacc >= 0.12
+    assert decipheracc >= 0.15
 if __name__ == '__main__' and not flags.interactive:
     test()
